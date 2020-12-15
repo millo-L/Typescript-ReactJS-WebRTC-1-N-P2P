@@ -22,3 +22,6 @@ npm start
 // change maximum value
 16 const maximum = 4;
 ```
+
+### Previous upload was 1:1 peer to peer WebRTC
+https://github.com/Seung3837/Typescript-react-webrtc-1-1
