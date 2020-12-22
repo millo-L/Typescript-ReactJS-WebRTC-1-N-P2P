@@ -4,11 +4,21 @@
 - 1:N communication (peer to peer)
 - React with Typescript
 - Node.js as a Signaling server
+- Docker
 
+## How to start
 
-### Node.js and React.js
-You need to install Node.js
+### 1. Docker version
+```sh
+# server use 8080 port
+# web use 8085 port
+# You can connect to http://localhost:8085
+docker-compose up -d
 ```
+
+### 2. Non-Docker version(Node.js and React.js)
+You need to install Node.js
+```sh
 cd Typescript-react-webrtc-1-N
 npm install
 node server.js
@@ -18,7 +28,7 @@ npm start
 ```
 
 ### If you want to increase the total number of people change server.js file
-```
+```js
 // change maximum value
 16 const maximum = 4;
 ```
