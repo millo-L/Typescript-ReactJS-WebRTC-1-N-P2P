@@ -7,7 +7,7 @@ let socketio = require('socket.io');
 let io = socketio.listen(server);
 
 app.use(cors());
-const PORT = process.env.PORT || 9080;
+const PORT = process.env.PORT || 8080;
 
 let users = {};
 

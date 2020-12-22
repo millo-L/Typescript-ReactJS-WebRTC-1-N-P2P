@@ -27,7 +27,7 @@ const App = () => {
   }
 
   useEffect(() => {
-    let newSocket = io.connect('http://localhost:9080');
+    let newSocket = io.connect('http://localhost:8080');
     let localStream: MediaStream;
 
     newSocket.on('all_users', (allUsers: Array<{id: string, email: string}>) => {
