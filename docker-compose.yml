@@ -2,6 +2,9 @@ version: '3.5'
 services:
   server:
     build: .
+    environment:
+      - PORT=8080
+      - MAXIMUM=4
     ports:
       - 8080:8080
     networks:
