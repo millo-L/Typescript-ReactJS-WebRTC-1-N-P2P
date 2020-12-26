@@ -61,6 +61,10 @@ io.on('connection', socket => {
         if (room) {
             room = room.filter(user => user.id !== socket.id);
             users[roomID] = room;
+            if (room.length === 0) {
+                delete users[roomID];
+                return;
+            }
         }
         socket.to(roomID).emit('user_exit', {id: socket.id});
         console.log(users);
