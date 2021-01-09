@@ -1,4 +1,4 @@
-# Typescript-ReactJS-WebRTC-1-N
+# Typescript-ReactJS-WebRTC-1-N-P2P
 
 ## Features
 - 1:N communication (peer to peer)
