@@ -41,4 +41,4 @@ npm start
 - https://velog.io/@seung3837/WebRTC-%EA%B5%AC%ED%98%84%ED%95%98%EA%B8%B01N-P2P
 
 ### Next Upload is...
-- 1:N SFU WebRTC https://github.com/Seung3837/Typescript-ReactJS-WebRTC-1-N-SFU/blob/main/README.md
+- 1:N SFU WebRTC https://github.com/Seung3837/Typescript-ReactJS-WebRTC-1-N-SFU
