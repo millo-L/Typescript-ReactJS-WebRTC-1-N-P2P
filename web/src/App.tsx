@@ -102,6 +102,7 @@ const App = () => {
     });
  
     newSocket.on('user_exit', (data: {id: string}) => {
+      pcs[data.id].close();
       delete pcs[data.id];
       setUsers(oldUsers => oldUsers.filter(user => user.id !== data.id));
     })
@@ -159,11 +160,6 @@ const App = () => {
         email: email,
         stream: e.streams[0]
       }]);
-    }
-
-    pc.close = () => {
-      console.log('pc closed');
-      // alert('GONE')
     }
 
     if (localStream){
