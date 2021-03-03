@@ -11,8 +11,8 @@ const App = () => {
 
   let localVideoRef = useRef<HTMLVideoElement>(null);
 
-  let pcs: any;
-  
+  let pcs: { [socketId: string]: RTCPeerConnection };
+
   const pc_config = {
     "iceServers": [
       // {
@@ -21,7 +21,7 @@ const App = () => {
       //   'username': '[USERNAME]'
       // },
       {
-        urls : 'stun:stun.l.google.com:19302'
+        urls: 'stun:stun.l.google.com:19302'
       }
     ]
   }
@@ -30,32 +30,32 @@ const App = () => {
     let newSocket = io.connect('http://localhost:8080');
     let localStream: MediaStream;
 
-    newSocket.on('all_users', (allUsers: Array<{id: string, email: string}>) => {
+    newSocket.on('all_users', (allUsers: Array<{ id: string, email: string }>) => {
       let len = allUsers.length;
 
       for (let i = 0; i < len; i++) {
         createPeerConnection(allUsers[i].id, allUsers[i].email, newSocket, localStream);
         let pc: RTCPeerConnection = pcs[allUsers[i].id];
         if (pc) {
-          pc.createOffer({offerToReceiveAudio: true, offerToReceiveVideo: true})
-          .then(sdp => {
-            console.log('create offer success');
-            pc.setLocalDescription(new RTCSessionDescription(sdp));
-            newSocket.emit('offer', {
-              sdp: sdp,
-              offerSendID: newSocket.id,
-              offerSendEmail: 'offerSendSample@sample.com',
-              offerReceiveID: allUsers[i].id
-            });
-          })
-          .catch(error => {
-            console.log(error);
-          })
+          pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true })
+            .then(sdp => {
+              console.log('create offer success');
+              pc.setLocalDescription(new RTCSessionDescription(sdp));
+              newSocket.emit('offer', {
+                sdp: sdp,
+                offerSendID: newSocket.id,
+                offerSendEmail: 'offerSendSample@sample.com',
+                offerReceiveID: allUsers[i].id
+              });
+            })
+            .catch(error => {
+              console.log(error);
+            })
         }
       }
     });
-  
-    newSocket.on('getOffer', (data: {sdp: RTCSessionDescription, offerSendID: string, offerSendEmail: string}) => {
+
+    newSocket.on('getOffer', (data: { sdp: RTCSessionDescription, offerSendID: string, offerSendEmail: string }) => {
 
       console.log('get offer');
       createPeerConnection(data.offerSendID, data.offerSendEmail, newSocket, localStream);
@@ -63,26 +63,26 @@ const App = () => {
       if (pc) {
         pc.setRemoteDescription(new RTCSessionDescription(data.sdp)).then(() => {
           console.log('answer set remote description success');
-          pc.createAnswer({offerToReceiveVideo: true, offerToReceiveAudio: true})
-          .then(sdp => {
-            
-           console.log('create answer success');
-            pc.setLocalDescription(new RTCSessionDescription(sdp));
-            newSocket.emit('answer', {
-              sdp: sdp, 
-              answerSendID: newSocket.id,
-              answerReceiveID: data.offerSendID
-            });
-          })
-          .catch(error => {
-            console.log(error);
-          })
+          pc.createAnswer({ offerToReceiveVideo: true, offerToReceiveAudio: true })
+            .then(sdp => {
+
+              console.log('create answer success');
+              pc.setLocalDescription(new RTCSessionDescription(sdp));
+              newSocket.emit('answer', {
+                sdp: sdp,
+                answerSendID: newSocket.id,
+                answerReceiveID: data.offerSendID
+              });
+            })
+            .catch(error => {
+              console.log(error);
+            })
         })
       }
     });
-  
-    newSocket.on('getAnswer', (data: {sdp: RTCSessionDescription, answerSendID: string}) => {
-      
+
+    newSocket.on('getAnswer', (data: { sdp: RTCSessionDescription, answerSendID: string }) => {
+
       console.log('get answer');
       let pc: RTCPeerConnection = pcs[data.answerSendID];
       if (pc) {
@@ -90,8 +90,8 @@ const App = () => {
       }
       //console.log(sdp);
     });
-  
-    newSocket.on('getCandidate', (data: {candidate: RTCIceCandidateInit, candidateSendID: string}) => {
+
+    newSocket.on('getCandidate', (data: { candidate: RTCIceCandidateInit, candidateSendID: string }) => {
       console.log('get candidate');
       let pc: RTCPeerConnection = pcs[data.candidateSendID];
       if (pc) {
@@ -100,8 +100,8 @@ const App = () => {
         })
       }
     });
- 
-    newSocket.on('user_exit', (data: {id: string}) => {
+
+    newSocket.on('user_exit', (data: { id: string }) => {
       pcs[data.id].close();
       delete pcs[data.id];
       setUsers(oldUsers => oldUsers.filter(user => user.id !== data.id));
@@ -120,13 +120,13 @@ const App = () => {
 
       localStream = stream;
 
-      newSocket.emit('join_room', {room: '1234', email: 'sample@naver.com'});
-      
+      newSocket.emit('join_room', { room: '1234', email: 'sample@naver.com' });
+
     }).catch(error => {
       console.log(`getUserMedia error: ${error}`);
     });
-    
-    
+
+
 
   }, []);
 
@@ -135,7 +135,7 @@ const App = () => {
     let pc = new RTCPeerConnection(pc_config);
 
     // add pc to peerConnections object
-    pcs = {...pcs, [socketID]: pc};
+    pcs = { ...pcs, [socketID]: pc };
 
     pc.onicecandidate = (e) => {
       if (e.candidate) {
@@ -162,7 +162,7 @@ const App = () => {
       }]);
     }
 
-    if (localStream){
+    if (localStream) {
       console.log('localstream add');
       localStream.getTracks().forEach(track => {
         pc.addTrack(track, localStream);
@@ -178,27 +178,27 @@ const App = () => {
 
   return (
     <div>
-        <video
-          style={{
-            width: 240,
-            height: 240,
-            margin: 5,
-            backgroundColor: 'black'
-          }}
-          muted
-          ref={ localVideoRef }
-          autoPlay>
-        </video>
-        {users.map((user, index) => {
-          return(
-            <Video
-              key={index}
-              email={user.email}
-              stream={user.stream}
-            />
-          );
-        })}
-      </div>
+      <video
+        style={{
+          width: 240,
+          height: 240,
+          margin: 5,
+          backgroundColor: 'black'
+        }}
+        muted
+        ref={localVideoRef}
+        autoPlay>
+      </video>
+      {users.map((user, index) => {
+        return (
+          <Video
+            key={index}
+            email={user.email}
+            stream={user.stream}
+          />
+        );
+      })}
+    </div>
   );
 }
 
