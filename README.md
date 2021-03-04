@@ -91,4 +91,4 @@ npm start
 - https://surprisecomputer.tistory.com/12
 
 ### Next Upload is...
-- 1:N SFU WebRTC https://github.com/Seung3837/Typescript-ReactJS-WebRTC-1-N-SFU
+- https://millo-l.github.io/WebRTC-%EA%B5%AC%ED%98%84%ED%95%98%EA%B8%B0-1-N-P2P/
