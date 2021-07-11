@@ -89,7 +89,7 @@ npm start
 
 ### More Details...
 - [Korean](https://millo-l.github.io/WebRTC-%EA%B5%AC%ED%98%84%ED%95%98%EA%B8%B0-1-N-P2P/)
-- [English](https://millo-l.github.io/Implementing-WebRTC-using-ReactJS-and-Typescript(1-N-P2P)/)
+- [English](https://millo-l.github.io/Implementing-WebRTC-using-ReactJS-and-Typescript-1-N-P2P/)
 
 ### Next Upload is...
 - https://github.com/millo-L/Typescript-ReactJS-WebRTC-1-N-SFU
