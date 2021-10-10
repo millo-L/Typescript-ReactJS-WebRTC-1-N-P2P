@@ -1,4 +1,4 @@
-FROM node:12.18.0
+FROM node:alpine
 
 RUN npm install -g nodemon
 RUN mkdir -p /usr/src/app

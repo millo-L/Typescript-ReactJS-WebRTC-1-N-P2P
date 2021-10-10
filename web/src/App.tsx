@@ -1,205 +1,219 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import io from 'socket.io-client';
-import { useRef } from 'react';
-import { useEffect } from 'react';
-import Video from 'Components/Video';
+import Video from './Components/Video';
+import { WebRTCUser } from './types';
+
+const pc_config = {
+	iceServers: [
+		// {
+		//   urls: 'stun:[STUN_IP]:[PORT]',
+		//   'credentials': '[YOR CREDENTIALS]',
+		//   'username': '[USERNAME]'
+		// },
+		{
+			urls: 'stun:stun.l.google.com:19302',
+		},
+	],
+};
+const SOCKET_SERVER_URL = 'http://localhost:8080';
 
 const App = () => {
+	const socketRef = useRef<SocketIOClient.Socket>();
+	const pcsRef = useRef<{ [socketId: string]: RTCPeerConnection }>({});
+	const localVideoRef = useRef<HTMLVideoElement>(null);
+	const localStreamRef = useRef<MediaStream>();
+	const [users, setUsers] = useState<WebRTCUser[]>([]);
 
-  const [socket, setSocket] = useState<SocketIOClient.Socket>();
-  const [users, setUsers] = useState<Array<IWebRTCUser>>([]);
+	const getLocalStream = useCallback(async () => {
+		try {
+			const localStream = await navigator.mediaDevices.getUserMedia({
+				audio: true,
+				video: {
+					width: 240,
+					height: 240,
+				},
+			});
+			localStreamRef.current = localStream;
+			if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
+			if (!socketRef.current) return;
+			socketRef.current.emit('join_room', {
+				room: '1234',
+				email: 'sample@naver.com',
+			});
+		} catch (e) {
+			console.log(`getUserMedia error: ${e}`);
+		}
+	}, []);
 
-  let localVideoRef = useRef<HTMLVideoElement>(null);
+	const createPeerConnection = useCallback((socketID: string, email: string) => {
+		try {
+			const pc = new RTCPeerConnection(pc_config);
 
-  let pcs: { [socketId: string]: RTCPeerConnection };
+			pc.onicecandidate = (e) => {
+				if (!(socketRef.current && e.candidate)) return;
+				console.log('onicecandidate');
+				socketRef.current.emit('candidate', {
+					candidate: e.candidate,
+					candidateSendID: socketRef.current.id,
+					candidateReceiveID: socketID,
+				});
+			};
 
-  const pc_config = {
-    "iceServers": [
-      // {
-      //   urls: 'stun:[STUN_IP]:[PORT]',
-      //   'credentials': '[YOR CREDENTIALS]',
-      //   'username': '[USERNAME]'
-      // },
-      {
-        urls: 'stun:stun.l.google.com:19302'
-      }
-    ]
-  }
+			pc.oniceconnectionstatechange = (e) => {
+				console.log(e);
+			};
 
-  useEffect(() => {
-    let newSocket = io.connect('http://localhost:8080');
-    let localStream: MediaStream;
+			pc.ontrack = (e) => {
+				console.log('ontrack success');
+				setUsers((oldUsers) => oldUsers.filter((user) => user.id !== socketID));
+				setUsers((oldUsers) => [
+					...oldUsers,
+					{
+						id: socketID,
+						email,
+						stream: e.streams[0],
+					},
+				]);
+			};
 
-    newSocket.on('all_users', (allUsers: Array<{ id: string, email: string }>) => {
-      let len = allUsers.length;
+			if (localStreamRef.current) {
+				console.log('localstream add');
+				localStreamRef.current.getTracks().forEach((track) => {
+					if (!localStreamRef.current) return;
+					pc.addTrack(track, localStreamRef.current);
+				});
+			} else {
+				console.log('no local stream');
+			}
 
-      for (let i = 0; i < len; i++) {
-        createPeerConnection(allUsers[i].id, allUsers[i].email, newSocket, localStream);
-        let pc: RTCPeerConnection = pcs[allUsers[i].id];
-        if (pc) {
-          pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true })
-            .then(sdp => {
-              console.log('create offer success');
-              pc.setLocalDescription(new RTCSessionDescription(sdp));
-              newSocket.emit('offer', {
-                sdp: sdp,
-                offerSendID: newSocket.id,
-                offerSendEmail: 'offerSendSample@sample.com',
-                offerReceiveID: allUsers[i].id
-              });
-            })
-            .catch(error => {
-              console.log(error);
-            })
-        }
-      }
-    });
+			return pc;
+		} catch (e) {
+			console.error(e);
+			return undefined;
+		}
+	}, []);
 
-    newSocket.on('getOffer', (data: { sdp: RTCSessionDescription, offerSendID: string, offerSendEmail: string }) => {
+	useEffect(() => {
+		socketRef.current = io.connect(SOCKET_SERVER_URL);
+		getLocalStream();
 
-      console.log('get offer');
-      createPeerConnection(data.offerSendID, data.offerSendEmail, newSocket, localStream);
-      let pc: RTCPeerConnection = pcs[data.offerSendID];
-      if (pc) {
-        pc.setRemoteDescription(new RTCSessionDescription(data.sdp)).then(() => {
-          console.log('answer set remote description success');
-          pc.createAnswer({ offerToReceiveVideo: true, offerToReceiveAudio: true })
-            .then(sdp => {
+		socketRef.current.on('all_users', (allUsers: Array<{ id: string; email: string }>) => {
+			allUsers.forEach(async (user) => {
+				if (!localStreamRef.current) return;
+				const pc = createPeerConnection(user.id, user.email);
+				if (!(pc && socketRef.current)) return;
+				pcsRef.current = { ...pcsRef.current, [user.id]: pc };
+				try {
+					const localSdp = await pc.createOffer({
+						offerToReceiveAudio: true,
+						offerToReceiveVideo: true,
+					});
+					console.log('create offer success');
+					await pc.setLocalDescription(new RTCSessionDescription(localSdp));
+					socketRef.current.emit('offer', {
+						sdp: localSdp,
+						offerSendID: socketRef.current.id,
+						offerSendEmail: 'offerSendSample@sample.com',
+						offerReceiveID: user.id,
+					});
+				} catch (e) {
+					console.error(e);
+				}
+			});
+		});
 
-              console.log('create answer success');
-              pc.setLocalDescription(new RTCSessionDescription(sdp));
-              newSocket.emit('answer', {
-                sdp: sdp,
-                answerSendID: newSocket.id,
-                answerReceiveID: data.offerSendID
-              });
-            })
-            .catch(error => {
-              console.log(error);
-            })
-        })
-      }
-    });
+		socketRef.current.on(
+			'getOffer',
+			async (data: {
+				sdp: RTCSessionDescription;
+				offerSendID: string;
+				offerSendEmail: string;
+			}) => {
+				const { sdp, offerSendID, offerSendEmail } = data;
+				console.log('get offer');
+				if (!localStreamRef.current) return;
+				const pc = createPeerConnection(offerSendID, offerSendEmail);
+				if (!(pc && socketRef.current)) return;
+				pcsRef.current = { ...pcsRef.current, [offerSendID]: pc };
+				try {
+					await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+					console.log('answer set remote description success');
+					const localSdp = await pc.createAnswer({
+						offerToReceiveVideo: true,
+						offerToReceiveAudio: true,
+					});
+					await pc.setLocalDescription(new RTCSessionDescription(localSdp));
+					socketRef.current.emit('answer', {
+						sdp: localSdp,
+						answerSendID: socketRef.current.id,
+						answerReceiveID: offerSendID,
+					});
+				} catch (e) {
+					console.error(e);
+				}
+			},
+		);
 
-    newSocket.on('getAnswer', (data: { sdp: RTCSessionDescription, answerSendID: string }) => {
+		socketRef.current.on(
+			'getAnswer',
+			(data: { sdp: RTCSessionDescription; answerSendID: string }) => {
+				const { sdp, answerSendID } = data;
+				console.log('get answer');
+				const pc: RTCPeerConnection = pcsRef.current[answerSendID];
+				if (!pc) return;
+				pc.setRemoteDescription(new RTCSessionDescription(sdp));
+			},
+		);
 
-      console.log('get answer');
-      let pc: RTCPeerConnection = pcs[data.answerSendID];
-      if (pc) {
-        pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-      }
-      //console.log(sdp);
-    });
+		socketRef.current.on(
+			'getCandidate',
+			async (data: { candidate: RTCIceCandidateInit; candidateSendID: string }) => {
+				console.log('get candidate');
+				const pc: RTCPeerConnection = pcsRef.current[data.candidateSendID];
+				if (!pc) return;
+				await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+				console.log('candidate add success');
+			},
+		);
 
-    newSocket.on('getCandidate', (data: { candidate: RTCIceCandidateInit, candidateSendID: string }) => {
-      console.log('get candidate');
-      let pc: RTCPeerConnection = pcs[data.candidateSendID];
-      if (pc) {
-        pc.addIceCandidate(new RTCIceCandidate(data.candidate)).then(() => {
-          console.log('candidate add success');
-        })
-      }
-    });
+		socketRef.current.on('user_exit', (data: { id: string }) => {
+			if (!pcsRef.current[data.id]) return;
+			pcsRef.current[data.id].close();
+			delete pcsRef.current[data.id];
+			setUsers((oldUsers) => oldUsers.filter((user) => user.id !== data.id));
+		});
 
-    newSocket.on('user_exit', (data: { id: string }) => {
-      pcs[data.id].close();
-      delete pcs[data.id];
-      setUsers(oldUsers => oldUsers.filter(user => user.id !== data.id));
-    })
+		return () => {
+			if (socketRef.current) {
+				socketRef.current.disconnect();
+			}
+			users.forEach((user) => {
+				if (!pcsRef.current[user.id]) return;
+				pcsRef.current[user.id].close();
+				delete pcsRef.current[user.id];
+			});
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [createPeerConnection, getLocalStream]);
 
-    setSocket(newSocket);
-
-    navigator.mediaDevices.getUserMedia({
-      audio: true,
-      video: {
-        width: 240,
-        height: 240
-      }
-    }).then(stream => {
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-
-      localStream = stream;
-
-      newSocket.emit('join_room', { room: '1234', email: 'sample@naver.com' });
-
-    }).catch(error => {
-      console.log(`getUserMedia error: ${error}`);
-    });
-
-
-
-  }, []);
-
-  const createPeerConnection = (socketID: string, email: string, newSocket: SocketIOClient.Socket, localStream: MediaStream): RTCPeerConnection => {
-
-    let pc = new RTCPeerConnection(pc_config);
-
-    // add pc to peerConnections object
-    pcs = { ...pcs, [socketID]: pc };
-
-    pc.onicecandidate = (e) => {
-      if (e.candidate) {
-        console.log('onicecandidate');
-        newSocket.emit('candidate', {
-          candidate: e.candidate,
-          candidateSendID: newSocket.id,
-          candidateReceiveID: socketID
-        });
-      }
-    }
-
-    pc.oniceconnectionstatechange = (e) => {
-      console.log(e);
-    }
-
-    pc.ontrack = (e) => {
-      console.log('ontrack success');
-      setUsers(oldUsers => oldUsers.filter(user => user.id !== socketID));
-      setUsers(oldUsers => [...oldUsers, {
-        id: socketID,
-        email: email,
-        stream: e.streams[0]
-      }]);
-    }
-
-    if (localStream) {
-      console.log('localstream add');
-      localStream.getTracks().forEach(track => {
-        pc.addTrack(track, localStream);
-      });
-    } else {
-      console.log('no local stream');
-    }
-
-    // return pc
-    return pc;
-
-  }
-
-  return (
-    <div>
-      <video
-        style={{
-          width: 240,
-          height: 240,
-          margin: 5,
-          backgroundColor: 'black'
-        }}
-        muted
-        ref={localVideoRef}
-        autoPlay>
-      </video>
-      {users.map((user, index) => {
-        return (
-          <Video
-            key={index}
-            email={user.email}
-            stream={user.stream}
-          />
-        );
-      })}
-    </div>
-  );
-}
+	return (
+		<div>
+			<video
+				style={{
+					width: 240,
+					height: 240,
+					margin: 5,
+					backgroundColor: 'black',
+				}}
+				muted
+				ref={localVideoRef}
+				autoPlay
+			/>
+			{users.map((user, index) => (
+				<Video key={index} email={user.email} stream={user.stream} />
+			))}
+		</div>
+	);
+};
 
 export default App;
