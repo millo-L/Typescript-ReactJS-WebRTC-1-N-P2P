@@ -6,7 +6,7 @@ services:
       - PORT=8080
       - MAXIMUM=4
     ports:
-      - 8080:8080
+      - "8080:8080"
     networks:
       - docker-net
   web:
@@ -15,7 +15,7 @@ services:
     stdin_open: true
     tty: true
     ports:
-      - 8085:5000
+      - "8085:5000"
     networks:
       - docker-net
 networks:
