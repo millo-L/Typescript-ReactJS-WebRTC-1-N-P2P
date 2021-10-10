@@ -65,15 +65,15 @@ const App = () => {
 
 			pc.ontrack = (e) => {
 				console.log('ontrack success');
-				setUsers((oldUsers) => oldUsers.filter((user) => user.id !== socketID));
-				setUsers((oldUsers) => [
-					...oldUsers,
-					{
-						id: socketID,
-						email,
-						stream: e.streams[0],
-					},
-				]);
+				setUsers((oldUsers) =>
+					oldUsers
+						.filter((user) => user.id !== socketID)
+						.concat({
+							id: socketID,
+							email,
+							stream: e.streams[0],
+						}),
+				);
 			};
 
 			if (localStreamRef.current) {
