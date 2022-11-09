@@ -4,9 +4,9 @@ services:
     build: .
     environment:
       - PORT=8080
-      - MAXIMUM=4
+      - MAXIMUM=6
     ports:
-      - "8080:8080"
+      - '8080:8080'
     networks:
       - docker-net
   web:
@@ -15,7 +15,7 @@ services:
     stdin_open: true
     tty: true
     ports:
-      - "8085:5000"
+      - '8085:3000'
     networks:
       - docker-net
 networks:

@@ -1,4 +1,4 @@
-FROM node:alpine
+FROM node:14-alpine
 
 RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app
@@ -13,5 +13,4 @@ COPY . .
 RUN npm run build
 RUN npm install -g serve -y
 
-EXPOSE 5000
 CMD [ "npx", "serve", "-s", "build" ]
